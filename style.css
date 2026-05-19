@@ -1,0 +1,388 @@
+:root {
+    --bg-1: #0f1116;
+    --bg-2: #1f2433;
+    --panel: #2d313d;
+    --panel-edge: #454b5d;
+    --accent: #6bc8eb;
+    --accent-2: #f6b353;
+    --text-main: #f0f4ff;
+    --text-soft: #a5aec6;
+    --hud: #9dff00;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Outfit", "Segoe UI", Tahoma, sans-serif;
+    color: var(--text-main);
+    background:
+        radial-gradient(circle at 15% 20%, rgba(107, 200, 235, 0.15), transparent 45%),
+        radial-gradient(circle at 85% 80%, rgba(246, 179, 83, 0.14), transparent 42%),
+        linear-gradient(130deg, var(--bg-1), var(--bg-2));
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+}
+
+.app-shell {
+    width: min(1280px, 100%);
+    min-height: 720px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 16px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    background: rgba(20, 23, 33, 0.6);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+}
+
+.camera-stage {
+    padding: 1rem;
+    background: linear-gradient(120deg, #04060d, #0d1220);
+}
+
+.camera-frame {
+    height: 100%;
+    border: 14px solid #030303;
+    border-radius: 4px;
+    background: #050505;
+    position: relative;
+    overflow: hidden;
+}
+
+.scene {
+    width: 100%;
+    height: calc(100% - 72px);
+    position: relative;
+    overflow: hidden;
+    background: #000;
+}
+
+.datetime-overlay {
+    position: absolute;
+    top: 0.8rem;
+    right: 1rem;
+    z-index: 8;
+    color: #ffffff;
+    font-family: "Outfit", "Segoe UI", Tahoma, sans-serif;
+    font-size: 0.84rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.65);
+    pointer-events: none;
+}
+
+.photo-mask {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: min(86%, calc(80% * 1.5));
+    aspect-ratio: 3 / 2;
+    height: auto;
+    transform: translate(-50%, -50%);
+    overflow: hidden;
+    background: #000;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+.photo-mask.aiming {
+    cursor: grabbing;
+}
+
+.scene-content {
+    position: absolute;
+    inset: 0;
+    transform-origin: center;
+    transition: transform 180ms linear;
+    will-change: transform;
+}
+
+.layer {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: filter 120ms linear;
+}
+
+.layer-subject {
+    object-fit: cover;
+    object-position: center;
+}
+
+.iso-noise {
+    position: absolute;
+    inset: -25%;
+    pointer-events: none;
+    z-index: 4;
+    opacity: 0;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 92px 92px;
+}
+
+.photo-limit {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: min(86%, calc(80% * 1.5));
+    aspect-ratio: 3 / 2;
+    height: auto;
+    transform: translate(-50%, -50%);
+    border: 2px solid rgba(225, 236, 255, 0.75);
+    pointer-events: none;
+    z-index: 5;
+}
+
+.focus-guides {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 6;
+}
+
+.focus-box {
+    --size: 28px;
+    position: absolute;
+    width: var(--size);
+    height: var(--size);
+    border: 2px solid rgba(34, 39, 54, 0.45);
+    box-shadow: 0 0 0 1px rgba(224, 230, 255, 0.4) inset;
+}
+
+.focus-box.center {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    border-color: rgba(115, 209, 255, 0.95);
+}
+
+.focus-box.tl {
+    left: 33%;
+    top: 38%;
+}
+
+.focus-box.tr {
+    left: 64%;
+    top: 38%;
+}
+
+.focus-box.bl {
+    left: 33%;
+    top: 62%;
+}
+
+.focus-box.br {
+    left: 64%;
+    top: 62%;
+}
+
+.camera-hud {
+    height: 72px;
+    padding: 0 1rem;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--hud);
+    font-family: "Orbitron", "Courier New", monospace;
+    text-shadow: 0 0 8px rgba(157, 255, 0, 0.35);
+    border-top: 1px solid #1e1f14;
+}
+
+.hud-item {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.35rem;
+    font-size: 0.92rem;
+}
+
+.hud-label {
+    font-size: 0.7rem;
+    opacity: 0.85;
+}
+
+.shutter-overlay {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.shutter-overlay.fire {
+    animation: shutter 220ms ease;
+}
+
+@keyframes shutter {
+    0% {
+        opacity: 0;
+    }
+
+    35% {
+        opacity: 0.95;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
+.control-panel {
+    padding: 1.2rem 1rem;
+    background: linear-gradient(180deg, #2f333f, #272b35);
+    border-left: 1px solid var(--panel-edge);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+h1 {
+    margin: 0;
+    font-size: 2rem;
+    line-height: 1;
+    letter-spacing: 0.03em;
+}
+
+.subtitle {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 0.92rem;
+}
+
+.mode-group {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border: 1px solid rgba(107, 200, 235, 0.45);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.mode-btn {
+    border: none;
+    color: #dce9f8;
+    background: rgba(107, 200, 235, 0.15);
+    padding: 0.7rem 0;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.mode-btn.active {
+    background: var(--accent);
+    color: #1a212e;
+}
+
+.scene-switch {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+    align-items: center;
+}
+
+.scene-switch label {
+    grid-column: 1 / -1;
+    color: #ecf4ff;
+    font-size: 0.95rem;
+}
+
+.scene-switch select {
+    width: 100%;
+    min-height: 2.1rem;
+    border: 1px solid rgba(107, 200, 235, 0.4);
+    border-radius: 7px;
+    background: rgba(10, 14, 20, 0.55);
+    color: #e7f0ff;
+    font: inherit;
+    padding: 0.25rem 0.5rem;
+}
+
+.control {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.aim-help {
+    margin: -0.25rem 0 0;
+    color: var(--text-soft);
+    font-size: 0.82rem;
+}
+
+.control-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    color: #ecf4ff;
+    font-size: 0.98rem;
+}
+
+.control output {
+    font-weight: 700;
+}
+
+input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+}
+
+input[type="range"]:disabled {
+    opacity: 0.35;
+}
+
+.snap-btn {
+    margin-top: 0.4rem;
+    border: none;
+    border-radius: 8px;
+    padding: 0.9rem;
+    font: inherit;
+    font-weight: 700;
+    color: #1b1f2a;
+    background: linear-gradient(90deg, #75c3db, #8ad5ef);
+    cursor: pointer;
+}
+
+.lesson {
+    margin-top: auto;
+    background: rgba(0, 0, 0, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.8rem;
+    min-height: 142px;
+    max-height: 142px;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 0.45rem;
+}
+
+.lesson h2 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.lesson p {
+    margin: 0;
+    color: #d5def2;
+    line-height: 1.35;
+    font-size: 0.9rem;
+    overflow-y: auto;
+    padding-right: 0.2rem;
+}
+
+@media (max-width: 1000px) {
+    .app-shell {
+        grid-template-columns: 1fr;
+        min-height: auto;
+    }
+
+    .camera-stage {
+        min-height: 55vh;
+    }
+}

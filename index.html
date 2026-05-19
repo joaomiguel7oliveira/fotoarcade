@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Foto arcade</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Outfit:wght@400;500;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+</head>
+
+<body>
+    <main class="app-shell">
+        <section class="camera-stage" aria-label="Pre-visualizacao da camera">
+            <div class="camera-frame" id="cameraFrame">
+                <div class="scene" id="scene">
+                    <div class="datetime-overlay" id="dateTimeOverlay">--/--/---- --:--</div>
+                    <div class="photo-mask" id="photoMask">
+                        <div class="scene-content" id="sceneContent">
+                            <img class="layer layer-bg" src="Imagens/Cena 1/Fundo.png" alt="Fundo" />
+                            <img class="layer layer-subject" src="Imagens/Cena 1/Assunto.png" alt="Assunto" />
+                            <div class="iso-noise" id="isoNoise" aria-hidden="true"></div>
+                        </div>
+                    </div>
+                    <div class="photo-limit" aria-hidden="true"></div>
+                </div>
+                <footer class="camera-hud" id="cameraHud">
+                    <div class="hud-item"><span class="hud-label">ISO</span><span id="hudIso">100</span></div>
+                    <div class="hud-item"><span class="hud-label">f</span><span id="hudAperture">5.6</span></div>
+                    <div class="hud-item"><span class="hud-label">s</span><span id="hudShutter">1/125</span></div>
+                    <div class="hud-item"><span class="hud-label">ZOOM</span><span id="hudFocal">35mm</span></div>
+                    <div class="hud-item"><span class="hud-label">EV</span><span id="hudEv">0.0</span></div>
+                </footer>
+                <div class="shutter-overlay" id="shutterOverlay" aria-hidden="true"></div>
+            </div>
+        </section>
+
+        <aside class="control-panel" aria-label="Painel de controle">
+            <h1>Foto arcade</h1>
+            <p class="subtitle">Aprenda exposicao na pratica em tempo real</p>
+
+            <div class="mode-group" role="radiogroup" aria-label="Modo da camera">
+                <button class="mode-btn" data-mode="P" aria-checked="false" title="P - Programa (ISO)">P</button>
+                <button class="mode-btn" data-mode="Av" aria-checked="false"
+                    title="Av - Prioridade de Diafragma">Av</button>
+                <button class="mode-btn" data-mode="Tv" aria-checked="false"
+                    title="Tv - Prioridade de Obturador">Tv</button>
+                <button class="mode-btn active" data-mode="M" aria-checked="true" title="M - Manual">M</button>
+            </div>
+
+            <div class="scene-switch">
+                <label for="sceneSelect">Cena</label>
+                <select id="sceneSelect"></select>
+            </div>
+
+            <label class="control" for="zoom">
+                <div class="control-head">
+                    <span>Zoom</span>
+                    <output id="zoomValue">35mm</output>
+                </div>
+                <input id="zoom" type="range" min="18" max="55" step="1" value="18" />
+            </label>
+
+            <label class="control" for="digitalZoom">
+                <div class="control-head">
+                    <span>Zoom digital</span>
+                    <output id="digitalZoomValue">1.0x</output>
+                </div>
+                <input id="digitalZoom" type="range" min="1" max="2.5" step="0.1" value="1" />
+            </label>
+            <p class="aim-help">Mire arrastando o clique dentro da foto.</p>
+
+            <label class="control" for="focus">
+                <div class="control-head">
+                    <span>Foco</span>
+                    <output id="focusValue">Assunto</output>
+                </div>
+                <input id="focus" type="range" min="0" max="100" step="1" value="75" />
+            </label>
+
+            <label class="control" for="iso">
+                <div class="control-head">
+                    <span>ISO</span>
+                    <output id="isoValue">100</output>
+                </div>
+                <input id="iso" type="range" min="100" max="6400" step="100" value="100" />
+            </label>
+
+            <label class="control" for="aperture">
+                <div class="control-head">
+                    <span>Diafragma (f)</span>
+                    <output id="apertureValue">5.6</output>
+                </div>
+                <input id="aperture" type="range" min="1.8" max="16" step="0.1" value="5.6" />
+            </label>
+
+            <label class="control" for="shutter">
+                <div class="control-head">
+                    <span>Obturador (s)</span>
+                    <output id="shutterValue">1/125</output>
+                </div>
+                <input id="shutter" type="range" min="0" max="8" step="1" value="4" />
+            </label>
+
+            <button id="snapBtn" class="snap-btn" type="button">Snap Photo</button>
+
+            <section class="lesson" aria-live="polite">
+                <h2>Como interpretar</h2>
+                <p id="lessonText"></p>
+            </section>
+        </aside>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
