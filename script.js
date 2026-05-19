@@ -80,6 +80,10 @@ const els = {
 
 const dragAim = { active: false, pointerId: null, lastX: 0, lastY: 0 };
 const EXPORT_BLUR_BOOST = 2.25;
+const EV_METER_MIDDLE_GRAY = 0.18;
+const EV_METER_NIGHT_EXTRA = 0.02;
+const EV_METER_BIAS_STOPS = 0.95;
+const EV_METER_NIGHT_BIAS_STOPS = 0.35;
 const meterCanvas = document.createElement("canvas");
 meterCanvas.width = 64;
 meterCanvas.height = 42;
@@ -182,7 +186,7 @@ function formatMeterEv(deltaStops) {
     return `${meterEv > 0 ? "+" : ""}${meterEv.toFixed(1)}`;
 }
 
-function computePreviewMeterStops() {
+function computePreviewMeterStops(bgFilter, subjectFilter) {
     if (!meterCtx) return 0;
 
     const w = meterCanvas.width;
@@ -200,25 +204,28 @@ function computePreviewMeterStops() {
 
     meterCtx.translate(centerX + panPxX, centerY + panPxY);
     meterCtx.scale(state.sceneScale, state.sceneScale);
-    meterCtx.filter = getComputedStyle(els.bg).filter;
+    meterCtx.filter = bgFilter || "none";
     meterCtx.drawImage(els.bg, -w / 2, -h / 2, w, h);
-    meterCtx.filter = getComputedStyle(els.subject).filter;
+    meterCtx.filter = subjectFilter || "none";
     meterCtx.drawImage(els.subject, -w / 2, -h / 2, w, h);
     meterCtx.restore();
 
     const pixels = meterCtx.getImageData(0, 0, w, h).data;
-    let luminanceSum = 0;
+    let logLuminanceSum = 0;
     const totalPixels = w * h;
+    const epsilon = 0.002;
     for (let i = 0; i < pixels.length; i += 4) {
         const r = pixels[i] / 255;
         const g = pixels[i + 1] / 255;
         const b = pixels[i + 2] / 255;
-        luminanceSum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        logLuminanceSum += Math.log(luminance + epsilon);
     }
 
-    const avgLuminance = luminanceSum / Math.max(1, totalPixels);
-    const middleGray = 0.18;
-    return Math.log2(Math.max(0.001, avgLuminance) / middleGray);
+    const avgLuminance = Math.exp(logLuminanceSum / Math.max(1, totalPixels)) - epsilon;
+    const meterReference = EV_METER_MIDDLE_GRAY + (state.sceneIndex === 1 ? EV_METER_NIGHT_EXTRA : 0);
+    const meterBias = EV_METER_BIAS_STOPS + (state.sceneIndex === 1 ? EV_METER_NIGHT_BIAS_STOPS : 0);
+    return Math.log2(Math.max(0.001, avgLuminance) / meterReference) - meterBias;
 }
 
 function applyDigitalZoomRules() {
@@ -235,12 +242,9 @@ function applyLivePreview() {
     const overStops = Math.max(0, deltaStops);
     const underStops = Math.max(0, -deltaStops);
     const isNightScene = state.sceneIndex === 1;
-    // Reforca o impacto visual do diafragma fechado (f alto) no escurecimento.
-    const apertureDarkeningStops = Math.max(0, Math.log2((state.aperture ** 2) / (5.6 ** 2))) * 0.35;
-    const totalUnderStops = underStops + apertureDarkeningStops;
     // Curva assimetrica: evita saturar cedo no claro e escurece rapido em subexposicao.
     const overBoost = 1 + overStops * 0.18 + (overStops ** 1.15) * 0.06;
-    const brightness = clamp(overBoost / (1 + totalUnderStops * 0.95), 0.14, 3.1);
+    const brightness = clamp(overBoost / (1 + underStops * 0.95), 0.14, 3.1);
     // A cena noturna tem base muito escura; aplica compensacao fixa para 0.0 EV parecer neutro.
     const nightPreviewLiftStops = isNightScene ? 0.35 : 0;
     const previewBrightness = clamp(brightness * (2 ** nightPreviewLiftStops), 0.14, 3.1);
@@ -264,9 +268,11 @@ function applyLivePreview() {
     // O assunto fica nitido quando o foco se aproxima do valor ideal da cena.
     const subjectBlur = dofStrength * (1 - focusAlignment) * 1.4 + shutterBlur * 0.4 + digitalBlur * 0.8;
 
-    els.bg.style.filter = `brightness(${previewBrightness}) contrast(${(contrast * detailContrast).toFixed(3)}) saturate(${saturation}) blur(${bgBlur.toFixed(2)}px)`;
+    const bgFilter = `brightness(${previewBrightness}) contrast(${(contrast * detailContrast).toFixed(3)}) saturate(${saturation}) blur(${bgBlur.toFixed(2)}px)`;
+    els.bg.style.filter = bgFilter;
     const subjectExposureLift = overStops > 0 ? Math.min(0.05, overStops * 0.015) : 0;
-    els.subject.style.filter = `brightness(${clamp(previewBrightness + subjectExposureLift, 0.14, 2.6)}) contrast(${(contrast * detailContrast).toFixed(3)}) saturate(${saturation}) blur(${subjectBlur.toFixed(2)}px)`;
+    const subjectFilter = `brightness(${clamp(previewBrightness + subjectExposureLift, 0.14, 2.6)}) contrast(${(contrast * detailContrast).toFixed(3)}) saturate(${saturation}) blur(${subjectBlur.toFixed(2)}px)`;
+    els.subject.style.filter = subjectFilter;
     const pixelated = digitalLoss > 0.85 ? "pixelated" : "auto";
     els.bg.style.imageRendering = pixelated;
     els.subject.style.imageRendering = pixelated;
@@ -286,7 +292,7 @@ function applyLivePreview() {
     const grainSize = Math.round(92 + digitalLoss * 36);
     els.isoNoise.style.backgroundSize = `${grainSize}px ${grainSize}px`;
     // EV do HUD segue a luminancia real da preview renderizada.
-    const visualDeltaStops = computePreviewMeterStops();
+    const visualDeltaStops = computePreviewMeterStops(bgFilter, subjectFilter);
     els.hudEv.textContent = formatMeterEv(visualDeltaStops);
 }
 
