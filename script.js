@@ -205,7 +205,8 @@ function applyLivePreview() {
     const subjectBlur = dofStrength * (1 - focusAlignment) * 1.4 + shutterBlur * 0.4 + digitalBlur * 0.8;
 
     els.bg.style.filter = `brightness(${brightness}) contrast(${(contrast * detailContrast).toFixed(3)}) saturate(${saturation}) blur(${bgBlur.toFixed(2)}px)`;
-    els.subject.style.filter = `brightness(${clamp(brightness + 0.05, 0.4, 2.6)}) contrast(${(contrast * detailContrast).toFixed(3)}) saturate(${saturation}) blur(${subjectBlur.toFixed(2)}px)`;
+    const subjectExposureLift = overStops > 0 ? Math.min(0.05, overStops * 0.015) : 0;
+    els.subject.style.filter = `brightness(${clamp(brightness + subjectExposureLift, 0.14, 2.6)}) contrast(${(contrast * detailContrast).toFixed(3)}) saturate(${saturation}) blur(${subjectBlur.toFixed(2)}px)`;
     const pixelated = digitalLoss > 0.85 ? "pixelated" : "auto";
     els.bg.style.imageRendering = pixelated;
     els.subject.style.imageRendering = pixelated;
@@ -266,6 +267,15 @@ function updateAimByDrag(clientX, clientY) {
     update();
 }
 
+function matchCanvasFilterToPreview(filterText) {
+    if (!filterText || filterText === "none") return "none";
+    // O blur no canvas tende a parecer mais suave que no preview CSS.
+    return filterText.replace(/blur\((\d+(?:\.\d+)?)px\)/g, (_full, blurPx) => {
+        const boosted = Number(blurPx) * 1.35;
+        return `blur(${boosted.toFixed(2)}px)`;
+    });
+}
+
 function drawSceneLayer(ctx, imgEl, filter, maskRect) {
     const centerX = maskRect.x + maskRect.w / 2;
     const centerY = maskRect.y + maskRect.h / 2;
@@ -277,7 +287,7 @@ function drawSceneLayer(ctx, imgEl, filter, maskRect) {
     ctx.clip();
     ctx.translate(centerX + panPxX, centerY + panPxY);
     ctx.scale(state.sceneScale, state.sceneScale);
-    ctx.filter = filter === "none" ? "none" : filter;
+    ctx.filter = matchCanvasFilterToPreview(filter);
     ctx.drawImage(imgEl, -maskRect.w / 2, -maskRect.h / 2, maskRect.w, maskRect.h);
     ctx.restore();
 }
