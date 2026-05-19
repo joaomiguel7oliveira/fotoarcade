@@ -182,8 +182,12 @@ function applyLivePreview() {
     const deltaStops = computeExposureDeltaStops();
     const overStops = Math.max(0, deltaStops);
     const underStops = Math.max(0, -deltaStops);
-    // Curva assimetrica: cenas subexpostas escurecem mais rapido para parecer mais realista.
-    const brightness = clamp((1 + overStops * 0.23) / (1 + underStops * 0.95), 0.14, 2.2);
+    // Reforca o impacto visual do diafragma fechado (f alto) no escurecimento.
+    const apertureDarkeningStops = Math.max(0, Math.log2((state.aperture ** 2) / (5.6 ** 2))) * 0.35;
+    const totalUnderStops = underStops + apertureDarkeningStops;
+    // Curva assimetrica: evita saturar cedo no claro e escurece rapido em subexposicao.
+    const overBoost = 1 + overStops * 0.18 + (overStops ** 1.15) * 0.06;
+    const brightness = clamp(overBoost / (1 + totalUnderStops * 0.95), 0.14, 3.1);
     const contrast = clamp(1 + overStops * 0.08 + underStops * 0.03, 0.9, 1.45);
     const isNightScene = state.sceneIndex === 1;
     // Evita "neon" em superexposicao: ao clarear, saturacao cai levemente.
