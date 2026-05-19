@@ -79,6 +79,7 @@ const els = {
 };
 
 const dragAim = { active: false, pointerId: null, lastX: 0, lastY: 0 };
+const EXPORT_BLUR_BOOST = 2.25;
 
 function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
 function roundToTenth(v) { return Math.round(v * 10) / 10; }
@@ -271,7 +272,7 @@ function matchCanvasFilterToPreview(filterText) {
     if (!filterText || filterText === "none") return "none";
     // O blur no canvas tende a parecer mais suave que no preview CSS.
     return filterText.replace(/blur\((\d+(?:\.\d+)?)px\)/g, (_full, blurPx) => {
-        const boosted = Number(blurPx) * 1.35;
+        const boosted = Number(blurPx) * EXPORT_BLUR_BOOST;
         return `blur(${boosted.toFixed(2)}px)`;
     });
 }
