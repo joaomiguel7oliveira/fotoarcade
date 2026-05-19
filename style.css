@@ -99,7 +99,7 @@ body {
     position: absolute;
     inset: 0;
     transform-origin: center;
-    transition: transform 180ms linear;
+    transition: none;
     will-change: transform;
 }
 
@@ -109,6 +109,14 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: none;
+}
+
+body.transitions-ready .scene-content {
+    transition: transform 180ms linear;
+}
+
+body.transitions-ready .layer {
     transition: filter 120ms linear;
 }
 

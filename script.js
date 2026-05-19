@@ -80,6 +80,10 @@ const els = {
 
 const dragAim = { active: false, pointerId: null, lastX: 0, lastY: 0 };
 const EXPORT_BLUR_BOOST = 2.25;
+const meterCanvas = document.createElement("canvas");
+meterCanvas.width = 64;
+meterCanvas.height = 42;
+const meterCtx = meterCanvas.getContext("2d", { willReadFrequently: true });
 
 function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
 function roundToTenth(v) { return Math.round(v * 10) / 10; }
@@ -169,6 +173,54 @@ function computeExposureDeltaStops() {
     return state.sceneEV - effectiveEV;
 }
 
+function computeMeterEv(deltaStops) {
+    return clamp(deltaStops, -2, 2);
+}
+
+function formatMeterEv(deltaStops) {
+    const meterEv = computeMeterEv(deltaStops);
+    return `${meterEv > 0 ? "+" : ""}${meterEv.toFixed(1)}`;
+}
+
+function computePreviewMeterStops() {
+    if (!meterCtx) return 0;
+
+    const w = meterCanvas.width;
+    const h = meterCanvas.height;
+    meterCtx.save();
+    meterCtx.clearRect(0, 0, w, h);
+    meterCtx.fillStyle = "#000";
+    meterCtx.fillRect(0, 0, w, h);
+
+    // Desenha uma versao reduzida da preview atual, com os filtros ativos.
+    const centerX = w / 2;
+    const centerY = h / 2;
+    const panPxX = (state.panXPercent / 100) * w;
+    const panPxY = (state.panYPercent / 100) * h;
+
+    meterCtx.translate(centerX + panPxX, centerY + panPxY);
+    meterCtx.scale(state.sceneScale, state.sceneScale);
+    meterCtx.filter = getComputedStyle(els.bg).filter;
+    meterCtx.drawImage(els.bg, -w / 2, -h / 2, w, h);
+    meterCtx.filter = getComputedStyle(els.subject).filter;
+    meterCtx.drawImage(els.subject, -w / 2, -h / 2, w, h);
+    meterCtx.restore();
+
+    const pixels = meterCtx.getImageData(0, 0, w, h).data;
+    let luminanceSum = 0;
+    const totalPixels = w * h;
+    for (let i = 0; i < pixels.length; i += 4) {
+        const r = pixels[i] / 255;
+        const g = pixels[i + 1] / 255;
+        const b = pixels[i + 2] / 255;
+        luminanceSum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+
+    const avgLuminance = luminanceSum / Math.max(1, totalPixels);
+    const middleGray = 0.18;
+    return Math.log2(Math.max(0.001, avgLuminance) / middleGray);
+}
+
 function applyDigitalZoomRules() {
     const canUseDigitalZoom = state.focal >= state.zoomMax;
     if (!canUseDigitalZoom) {
@@ -182,14 +234,17 @@ function applyLivePreview() {
     const deltaStops = computeExposureDeltaStops();
     const overStops = Math.max(0, deltaStops);
     const underStops = Math.max(0, -deltaStops);
+    const isNightScene = state.sceneIndex === 1;
     // Reforca o impacto visual do diafragma fechado (f alto) no escurecimento.
     const apertureDarkeningStops = Math.max(0, Math.log2((state.aperture ** 2) / (5.6 ** 2))) * 0.35;
     const totalUnderStops = underStops + apertureDarkeningStops;
     // Curva assimetrica: evita saturar cedo no claro e escurece rapido em subexposicao.
     const overBoost = 1 + overStops * 0.18 + (overStops ** 1.15) * 0.06;
     const brightness = clamp(overBoost / (1 + totalUnderStops * 0.95), 0.14, 3.1);
+    // A cena noturna tem base muito escura; aplica compensacao fixa para 0.0 EV parecer neutro.
+    const nightPreviewLiftStops = isNightScene ? 0.35 : 0;
+    const previewBrightness = clamp(brightness * (2 ** nightPreviewLiftStops), 0.14, 3.1);
     const contrast = clamp(1 + overStops * 0.08 + underStops * 0.03, 0.9, 1.45);
-    const isNightScene = state.sceneIndex === 1;
     // Evita "neon" em superexposicao: ao clarear, saturacao cai levemente.
     const saturationBoost = deltaStops < 0 ? Math.abs(deltaStops) * 0.015 : 0;
     const saturationCut = deltaStops > 0 ? deltaStops * (isNightScene ? 0.18 : 0.1) : 0;
@@ -209,9 +264,9 @@ function applyLivePreview() {
     // O assunto fica nitido quando o foco se aproxima do valor ideal da cena.
     const subjectBlur = dofStrength * (1 - focusAlignment) * 1.4 + shutterBlur * 0.4 + digitalBlur * 0.8;
 
-    els.bg.style.filter = `brightness(${brightness}) contrast(${(contrast * detailContrast).toFixed(3)}) saturate(${saturation}) blur(${bgBlur.toFixed(2)}px)`;
+    els.bg.style.filter = `brightness(${previewBrightness}) contrast(${(contrast * detailContrast).toFixed(3)}) saturate(${saturation}) blur(${bgBlur.toFixed(2)}px)`;
     const subjectExposureLift = overStops > 0 ? Math.min(0.05, overStops * 0.015) : 0;
-    els.subject.style.filter = `brightness(${clamp(brightness + subjectExposureLift, 0.14, 2.6)}) contrast(${(contrast * detailContrast).toFixed(3)}) saturate(${saturation}) blur(${subjectBlur.toFixed(2)}px)`;
+    els.subject.style.filter = `brightness(${clamp(previewBrightness + subjectExposureLift, 0.14, 2.6)}) contrast(${(contrast * detailContrast).toFixed(3)}) saturate(${saturation}) blur(${subjectBlur.toFixed(2)}px)`;
     const pixelated = digitalLoss > 0.85 ? "pixelated" : "auto";
     els.bg.style.imageRendering = pixelated;
     els.subject.style.imageRendering = pixelated;
@@ -230,7 +285,9 @@ function applyLivePreview() {
     els.isoNoise.style.filter = `grayscale(1) contrast(${1 + noise * 1.12})`;
     const grainSize = Math.round(92 + digitalLoss * 36);
     els.isoNoise.style.backgroundSize = `${grainSize}px ${grainSize}px`;
-    els.hudEv.textContent = `${deltaStops > 0 ? "+" : ""}${deltaStops.toFixed(1)}`;
+    // EV do HUD segue a luminancia real da preview renderizada.
+    const visualDeltaStops = computePreviewMeterStops();
+    els.hudEv.textContent = formatMeterEv(visualDeltaStops);
 }
 
 function applyControlLocking() {
@@ -667,4 +724,7 @@ setInterval(() => { els.dateTimeOverlay.textContent = formatDateTime(new Date())
 
 initScenes().finally(() => {
     update();
+    requestAnimationFrame(() => {
+        document.body.classList.add("transitions-ready");
+    });
 });
